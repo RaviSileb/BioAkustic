@@ -74,8 +74,23 @@ Telefon byl odemčen, aplikace ovládána přes `uiautomator` + tapnutí:
   (vše ≈ 0 %) – pravděpodobně nebiologický zvuk, ne zvíře.
 - 15:17 (tichý šum 300–3000 Hz): nic (≈ 0 %).
 
-## Zbývá ověřit po opětovném připojení telefonu
+## End-to-end ověření UI (16:15–16:25, po rebuildu se sigmoidem)
 
-Telefon se během testu odpojil (kabel). Po připojení: přeinstalovat aktuální
-build (sigmoid fix), spustit monitoring, ověřit procenta v žebříčku naživo,
-projít Historie → detail → přílohy a doplnit screenshoty.
+Telefon připojen zpět, nainstalován aktuální build, ovládáno přes
+`uiautomator` + tapnutí. **0 pádů** za celou session.
+
+| Krok | Výsledek |
+|---|---|
+| Spuštění monitoringu | OK – `VOICE_RECOGNITION / float @ 48000 Hz`, živý spektrogram |
+| Ruční detekce + BirdNET žebříček | OK – top-5 s reálnými procenty (3 %, 2 %, 0 %…), pod 40 % červeně |
+| Historie | OK – 13 záznamů, druh, čas, délka, GPS odznak, chip BirdNET + % |
+| Detail záznamu | OK – editovatelná pole, GPS 50.0334902 / 14.5119106 |
+| Přehrávání WAV | OK – stav Přehrát → Zastavit, klip 0:04 |
+| Editace místa + uložení | OK – `Testovaci misto` ověřeno přímo v `bioakustic.db` |
+| Příloha fotky | OK – Samsung Camera intent → vyfoceno → OK → 1,3 MB JPG v `files/photos/` + cesta v DB + náhled v UI |
+| USB záložka | OK – „Žádná USB zařízení nenalezena“ (správně, nic nepřipojeno) |
+| Zastavení monitoringu | OK |
+
+Neověřeno (vyžaduje hardware / terén): video příloha (stejný mechanismus jako
+foto), GPS meta-model, USB ultrazvukový mikrofon, celonoční monitoring
+baterie. Screenshoty z testu jsou v `/tmp/bio_*.png` (necommitují se).
