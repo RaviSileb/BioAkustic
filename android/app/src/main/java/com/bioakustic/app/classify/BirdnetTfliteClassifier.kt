@@ -13,7 +13,7 @@ import org.tensorflow.lite.gpu.GpuDelegate
  *
  * Expected model: raw-waveform input, 3 s mono @48 kHz float32 ([1, 144000]),
  * single output vector of per-class scores. Labels file: one entry per line,
- * "Common name_Scientific name".
+ * "Scientific name_Common name" (BirdNET GLOBAL_6K format).
  *
  * Delegate strategy on Snapdragon 8 Gen 2: GPU delegate first, NNAPI
  * (Hexagon) on request, plain CPU as the last resort.
@@ -38,17 +38,7 @@ class BirdnetTfliteClassifier(
         private set
 
     init {
-        labels = labelsFile.readLines(Charsets.UTF_8)
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .map { line ->
-                val sep = line.lastIndexOf('_')
-                if (sep > 0) {
-                    line.substring(0, sep) to line.substring(sep + 1)
-                } else {
-                    line to ""
-                }
-            }
+        labels = parseLabels(labelsFile.readLines(Charsets.UTF_8))
         require(labels.isNotEmpty()) { "Labels file is empty: $labelsFile" }
         val options = Interpreter.Options().apply {
             setNumThreads(4)
@@ -58,7 +48,9 @@ class BirdnetTfliteClassifier(
                     addDelegate(it)
                     delegateUsed = "GPU"
                 }
-            } catch (_: Exception) {
+            } catch (_: Throwable) {
+                // Covers Exception and linkage Errors (e.g. missing GPU API
+                // classes on some builds) so inference still falls back.
                 gpuDelegate = null
                 if (useNnapi) {
                     runCatching {
@@ -74,10 +66,22 @@ class BirdnetTfliteClassifier(
         }
         val created = try {
             Interpreter(modelFile, options)
-        } catch (e: Exception) {
-            gpuDelegate?.close()
+        } catch (e: Throwable) {
+            // The delegate (usually GPU) rejected this model graph: retry
+            // once with a plain interpreter (NNAPI when requested, else CPU).
+            runCatching { gpuDelegate?.close() }
             gpuDelegate = null
-            throw e
+            val fallback = Interpreter.Options().apply {
+                setNumThreads(4)
+                if (useNnapi) runCatching { setUseNNAPI(true) }
+            }
+            delegateUsed = if (useNnapi) "NNAPI" else "CPU"
+            try {
+                Interpreter(modelFile, fallback)
+            } catch (e2: Throwable) {
+                e2.addSuppressed(e)
+                throw e2
+            }
         }
         interpreter = created
         outputSize = created.getOutputTensor(0).shape().reduce { a, b -> a * b }
@@ -105,6 +109,8 @@ class BirdnetTfliteClassifier(
         synchronized(interp) {
             interp.run(inputBuffer, output)
         }
+        // Raw outputs are logits; sigmoid maps them to 0..1 probabilities.
+        // (Ranking by logits is identical since sigmoid is monotonic.)
         val ranked = (0 until outputSize)
             .sortedByDescending { scores[it] }
             .take(TOP_K)
@@ -112,12 +118,12 @@ class BirdnetTfliteClassifier(
         val (common, scientific) = labels.getOrElse(best) { "Neznámý" to "" }
         val topLabels = ranked.map { i ->
             val (c, s) = labels.getOrElse(i) { "Neznámý" to "" }
-            Classifier.ScoredLabel(c, s.ifEmpty { null }, scores[i].coerceIn(0f, 1f))
+            Classifier.ScoredLabel(c, s.ifEmpty { null }, sigmoid(scores[i]))
         }
         return Classifier.Result(
             commonName = common,
             scientificName = scientific.ifEmpty { null },
-            confidence = scores[best].coerceIn(0f, 1f),
+            confidence = sigmoid(scores[best]),
             behavior = null,
             behaviorConfidence = null,
             source = DetectionSource.TFLITE,
@@ -147,5 +153,21 @@ class BirdnetTfliteClassifier(
         const val MODEL_SECONDS = 3
         const val MODEL_LEN = MODEL_RATE * MODEL_SECONDS
         const val TOP_K = 5
+
+        fun sigmoid(logit: Float): Float =
+            (1.0 / (1.0 + kotlin.math.exp(-logit.toDouble()))).toFloat()
+
+        /** Parses BirdNET "Scientific name_Common name" lines into (common, scientific). */
+        fun parseLabels(lines: List<String>): List<Pair<String, String>> =
+            lines.map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .map { line ->
+                    val sep = line.indexOf('_')
+                    if (sep > 0) {
+                        line.substring(sep + 1) to line.substring(0, sep)
+                    } else {
+                        line to ""
+                    }
+                }
     }
 }

@@ -43,15 +43,39 @@ adb shell am start -n com.bioakustic.app/.MainActivity
 # → topResumedActivity=com.bioakustic.app/.MainActivity, 0× FATAL EXCEPTION
 ```
 
-## Známá omezení testu
+## Živý test na odemčeném telefonu (15:15–15:35)
 
-- Telefon byl po celou dobu **zamčený zabezpečeným zámkem** (PIN/biometrika),
-  který nelze přes adb obejít – proto nebylo možné pořídit screenshoty UI
-  ani proklikat aplikaci. Logcat potvrzuje první vyrenderovaný frame
-  (`onFrameAvailable the first frame is available`).
-- End-to-end UI scénář (spuštění monitoringu → automatická detekce → záznam
-  v historii → editace → příloha) je proto zatím ověřen po částech
-  (engine, DB, WAV, klasifikátor) a **čeká na ruční potvrzení na odemčeném
-  telefonu**. Doporučený postup viz `docs/USER_GUIDE.md`.
-- GPS fix a BirdNET model se na zařízení netestovaly (model není součástí
-  repa; GPS vyžaduje signál a čas venku).
+Telefon byl odemčen, aplikace ovládána přes `uiautomator` + tapnutí:
+
+- Monitoring spuštěn, spektrogram živý, automatická detekce uložila 5 klipů
+  během 3 minut (práh −25 dB, nastavil uživatel).
+- **Zdroj zvuku:** `PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED` není k dispozici,
+  engine spadl na `VOICE_RECOGNITION / float @ 48000 Hz` – dle návrhu.
+- **BirdNET model** (FP16, 26 MB z `sammlapp/BirdNET_v2.4`) nahrán do
+  `files/models/` a v aplikaci načten (`Klasifikátor: BirdNET (TFLite)`).
+- **Nalezené a opravené chyby:**
+  1. Formát popisků je `Scientific_Common` (ne naopak) – opraven parser.
+  2. Chyběl artefakt `tensorflow-lite-gpu-api` → `NoClassDefFoundError`
+     a pád při startu – přidána závislost + catch `Throwable`.
+  3. GPU delegát model odmítl (`Error applying delegate`) – přidán
+     automatický retry bez delegátu (CPU), inference funguje.
+  4. Výstup modelu jsou **logity** – bez sigmoidu vycházelo vše 0 %.
+     Přidán `sigmoid()` + unit testy (`BirdnetPostprocessTest`).
+- **Varování 16KB stránek:** na zařízení neškodné (stránky 4 KB,
+  `getconf PAGESIZE` = 4096); TFLite 2.16.1 `.so` nejsou 16KB-zarovnané.
+  Sledovat při přechodu na novější zařízení.
+- **Aktuální unit testy: 8/8** (4 FFT/Mel + 2 heuristika + 2 postprocessing).
+
+### Co telefon slyšel (BirdNET inference nad staženými klipy)
+
+- 15:32 (tichá místnost, −51 dB): prvních ~3 s **lidský hlas ~100 %**
+  (uživatel u telefonu), pak ticho – žádné zvíře.
+- 15:18 (silné výbuchy 6–12 kHz): BirdNET **žádného ptáka nerozpoznal**
+  (vše ≈ 0 %) – pravděpodobně nebiologický zvuk, ne zvíře.
+- 15:17 (tichý šum 300–3000 Hz): nic (≈ 0 %).
+
+## Zbývá ověřit po opětovném připojení telefonu
+
+Telefon se během testu odpojil (kabel). Po připojení: přeinstalovat aktuální
+build (sigmoid fix), spustit monitoring, ověřit procenta v žebříčku naživo,
+projít Historie → detail → přílohy a doplnit screenshoty.

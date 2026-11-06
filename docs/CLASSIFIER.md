@@ -16,21 +16,23 @@ Oba klasifikátory vracejí kromě top-1 i seřazený **žebříček kandidátů
 ## Požadavky na TFLite model
 
 - Vstup: surový průběh 3 s mono @ 48 kHz, float32, tvar `[1, 144000]`.
-- Výstup: vektor skóre `[1, N]` nebo `[N]` (např. 6512 tříd BirdNET).
+- Výstup: vektor **logitů** `[1, N]` nebo `[N]` (6522 tříd v2.4).
+  Aplikace je převádí na pravděpodobnosti **sigmoidem**
+  (`BirdnetTfliteClassifier.sigmoid`) – bez něj by vše vycházelo 0 %.
 - Popisky: textový soubor, jeden druh na řádek,
-  formát `Obecný název_Vědecký název` (dělení na posledním podtržítku).
+  formát `Vědecký název_Obecný název` (BirdNET GLOBAL_6K, právě jedno `_`).
 - Kratší/delší klipy se automaticky středově oříznou/doplní na 3 s;
   jiná vzorkovačka se lineárně převzorkuje.
 
 ## Instalace modelu
 
-1. Získejte BirdNET-kompatibilní `.tflite` a popisky (např. z projektu
-   [BirdNET-Analyzer](https://github.com/kahst/BirdNET-Analyzer) – modely
-   publikuje TU Chemnitz; přímé URL se mění, proto ho aplikace
-   nehardcoduje).
-2. V aplikaci otevřete **Nastavení → Klasifikační model**, zadejte obě URL
-   a klepněte **Stáhnout model**. Průběh ukazuje procenta.
-3. Po stažení se model ihned načte; stav ukazuje použitý delegát.
+1. Výchozí URL v aplikaci ukazují na oficiální mirror autora BirdNET
+   (`sammlapp/BirdNET_v2.4` na HuggingFace, varianta FP16, ~26 MB,
+   licence CC-BY-NC-SA-4.0). Nic zadávat nemusíte.
+2. V aplikaci otevřete **Nastavení → Klasifikační model** a klepněte
+   **Stáhnout model**. Průběh ukazuje procenta.
+3. Po stažení se model ihned načte; stav ukazuje použitý delegát
+   (očekáváno GPU na Adreno 740).
 
 Alternativa bez stahování: nakopírujte soubory přes `adb`:
 
@@ -49,6 +51,12 @@ adb shell run-as com.bioakustic.app cp /data/local/tmp/birdnet_labels.txt files/
 Pořadí: **GPU delegát** (Adreno 740) → při zapnutém NNAPI **Hexagon DSP** →
 **CPU** (4 vlákna). Každý krok má try/catch fallback, použitý delegát hlásí
 Nastavení. Kvantizace INT8 se podporuje automaticky dle modelu.
+
+> **Poznatek z S23 Ultra (11/2026):** GPU delegát TFLite 2.16.1 model
+> BirdNET FP16 odmítl (`Error applying delegate`), aplikace automaticky
+> přešla na CPU a inference funguje. Vyžaduje závislost
+> `tensorflow-lite-gpu-api`, jinak pádí `NoClassDefFoundError`
+> (ošetřeno catchem `Throwable` + retry bez delegátu).
 
 ## Práh chování
 

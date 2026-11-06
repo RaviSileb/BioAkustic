@@ -44,14 +44,20 @@ class AppContainer(val app: Application) {
         set(value) = prefs.edit().putBoolean(KEY_NNAPI, value).apply()
 
     var modelUrl: String
-        get() = prefs.getString(KEY_MODEL_URL, "") ?: ""
+        get() = prefs.getString(KEY_MODEL_URL, DEFAULT_MODEL_URL) ?: DEFAULT_MODEL_URL
         set(value) = prefs.edit().putString(KEY_MODEL_URL, value).apply()
 
     var labelsUrl: String
-        get() = prefs.getString(KEY_LABELS_URL, "") ?: ""
+        get() = prefs.getString(KEY_LABELS_URL, DEFAULT_LABELS_URL) ?: DEFAULT_LABELS_URL
         set(value) = prefs.edit().putString(KEY_LABELS_URL, value).apply()
 
     companion object {
+        const val DEFAULT_MODEL_URL =
+            "https://huggingface.co/sammlapp/BirdNET_v2.4/resolve/main/" +
+                "V2.4/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite"
+        const val DEFAULT_LABELS_URL =
+            "https://huggingface.co/sammlapp/BirdNET_v2.4/resolve/main/" +
+                "V2.4/BirdNET_GLOBAL_6K_V2.4_Labels.txt"
         const val PREFS = "bioakustic_prefs"
         const val KEY_AUTO_DETECT = "auto_detect"
         const val KEY_THRESHOLD_DB = "threshold_db"

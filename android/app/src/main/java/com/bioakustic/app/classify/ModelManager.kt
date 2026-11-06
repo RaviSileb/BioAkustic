@@ -53,7 +53,7 @@ class ModelManager(private val context: Context) {
             val tflite = BirdnetTfliteClassifier(model, labels, useNnapi)
             replaceClassifier(tflite)
             _state.value = ModelState.Ready("BirdNET TFLite (${tflite.delegateUsed})")
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             replaceClassifier(HeuristicClassifier())
             _state.value = ModelState.Error("Model nelze načíst: ${e.message}")
         }

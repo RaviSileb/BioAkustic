@@ -63,6 +63,7 @@ dependencies {
     implementation(libs.tflite)
     implementation(libs.tflite.support)
     implementation(libs.tflite.gpu)
+    implementation(libs.tflite.gpu.api)
     implementation(libs.play.location)
     implementation(libs.coil.compose)
     ksp(libs.room.compiler)

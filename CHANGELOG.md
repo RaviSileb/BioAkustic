@@ -2,6 +2,14 @@
 
 Formát: datum, verze, změny (česky, stručně).
 
+## 2026-11-06 – 0.1.0 (opravy z živého testu)
+
+- BirdNET: oprava formátu popisků (`Scientific_Common`), sigmoid na logity,
+  retry bez GPU delegátu (na S23U odmítnut → CPU fallback).
+- Přidána závislost `tensorflow-lite-gpu-api`, fallback chytá i `Error`.
+- Výchozí URL modelu: `sammlapp/BirdNET_v2.4` (HuggingFace, FP16).
+- Nové unit testy `BirdnetPostprocessTest` (8/8).
+
 ## 2026-11-06 – 0.1.0 (MVP)
 
 - Živý monitoring: AudioRecord UNPROCESSED 48 kHz float, spektrogram, měřič úrovně.
