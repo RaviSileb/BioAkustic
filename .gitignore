@@ -1,0 +1,18 @@
+# Android / Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/app/release/
+android/local.properties
+*.iml
+.idea/
+# Wrapper jar is intentionally committed for reproducible builds.
+# Gradle caches
+.gradle/
+# OS
+.DS_Store
+Thumbs.db
+# Secrets / local
+*.jks
+*.keystore
+local.properties
